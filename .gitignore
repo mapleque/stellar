@@ -1,0 +1,9 @@
+*
+!examples
+!examples/*
+!*.go
+!.gitignore
+!go.mod
+!go.sum
+!LICENSE
+!README.md
