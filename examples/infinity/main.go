@@ -8,6 +8,7 @@ import (
 )
 
 const FrameDuration = time.Second
+const ActionDuration = time.Second
 
 type Infinity struct {
 	engine stellar.Engine
@@ -38,34 +39,32 @@ func main() {
 	}
 	game.player = c
 	go func() {
-		(&game).frame(FrameDuration)
+		(&game).autoplay(ActionDuration)
+	}()
+	go func() {
+		(&game).render(FrameDuration)
 	}()
 	if err := game.engine.Start(); err != nil {
 		panic(err)
 	}
 }
 
-func (g *Infinity) frame(d time.Duration) {
-	fmt.Printf("---- new frame ----\n")
-	g.frameInit()
-	g.frameDisplay()
-	g.frameAction()
-	g.frameClear()
-	g.frameDisplay()
-	fmt.Printf("========\n")
+func (g *Infinity) autoplay(d time.Duration) {
+	g.actionInit()
+	g.actionDo()
+	g.actionClear()
 
 	if g.player.IsDead() {
-		fmt.Printf("Your are dead!\n")
 		if err := g.engine.Stop(); err != nil {
 			panic(err)
 		}
 		return
 	}
 
-	time.AfterFunc(d, func() { g.frame(d) })
+	time.AfterFunc(d, func() { g.autoplay(d) })
 }
 
-func (g *Infinity) frameInit() {
+func (g *Infinity) actionInit() {
 	if len(g.enemys) == 0 {
 		g.enemysOpts = g.randomEnemy()
 		for _, opts := range g.enemysOpts {
@@ -81,7 +80,7 @@ func (g *Infinity) frameInit() {
 	g.events = []stellar.Event{}
 }
 
-func (g *Infinity) frameClear() {
+func (g *Infinity) actionClear() {
 	g.events, g.lastEventId = g.engine.GetEvents(g.lastEventId)
 
 	// remove dead enemys
@@ -89,6 +88,15 @@ func (g *Infinity) frameClear() {
 	for _, enemy := range g.enemys {
 		if !enemy.IsDead() {
 			enemys = append(enemys, enemy)
+		} else {
+			g.player.AddExp(30)
+			if g.player.GetExp() >= 100 {
+				overflow := g.player.GetExp() - 100
+				g.player.LevelUp(1)
+				if overflow > 0 {
+					g.player.AddExp(overflow)
+				}
+			}
 		}
 	}
 	if len(enemys) != len(g.enemys) {
@@ -99,49 +107,14 @@ func (g *Infinity) frameClear() {
 	g.actions = []stellar.Action{}
 }
 
-func (g *Infinity) frameDisplay() {
-	fmt.Printf(
-		"Player:\n\t%+v HP: %+v/%+v\n",
-		g.player.GetName(),
-		g.player.GetCurHP(),
-		g.player.GetMaxHP(),
-	)
-	fmt.Printf("Enemy(s) (%d):\n", len(g.enemys))
-	for _, enemy := range g.enemys {
-		fmt.Printf(
-			"\t%+v HP: %+v/%+v\n",
-			enemy.GetName(),
-			enemy.GetCurHP(),
-			enemy.GetMaxHP(),
-		)
-	}
-	if len(g.actions) > 0 {
-		fmt.Printf("Actions:\n")
-		for _, action := range g.actions {
-			fmt.Printf(
-				"\t%+v %+v %+v\n",
-				action.Source(),
-				action.Type(),
-				action.Targets(),
-			)
-		}
-	}
-	if len(g.events) > 0 {
-		fmt.Printf("Events:\n")
-		for _, event := range g.events {
-			fmt.Printf("\t%s\n", event.Message())
-		}
-	}
-}
-
-func (g *Infinity) frameAction() {
+func (g *Infinity) actionDo() {
 	g.engine.DoAction(g.actions...)
 }
 
 func (g *Infinity) randomEnemy() [][]stellar.CharactorOption {
 	return [][]stellar.CharactorOption{{
 		stellar.CharactorName("enemy"),
-		stellar.CharactorHP(10),
+		stellar.CharactorHP(50),
 	}}
 }
 
@@ -153,4 +126,35 @@ func (g *Infinity) randomActions() []stellar.Action {
 		actions = append(actions, stellar.AttackAction(enemy, g.player))
 	}
 	return actions
+}
+
+func (g *Infinity) render(d time.Duration) {
+	g.renderFrame()
+	if g.player.IsDead() {
+		return
+	}
+	time.AfterFunc(d, func() { g.render(d) })
+}
+
+func (g *Infinity) renderFrame() {
+	// fmt.Printf(
+	// 	"%+v HP: %+v/%+v\t",
+	// 	g.player.GetName(),
+	// 	g.player.GetCurHP(),
+	// 	g.player.GetMaxHP(),
+	// )
+	// for _, enemy := range g.enemys {
+	// 	fmt.Printf(
+	// 		"\t%+v HP: %+v/%+v",
+	// 		enemy.GetName(),
+	// 		enemy.GetCurHP(),
+	// 		enemy.GetMaxHP(),
+	// 	)
+	// }
+	// fmt.Println()
+	if len(g.events) > 0 {
+		for _, event := range g.events {
+			fmt.Printf("\t%s\n", event.Message())
+		}
+	}
 }

@@ -29,10 +29,13 @@ func addCharactorEvent(c *charactor) Event {
 }
 
 func doAttackEvent(c *charactor, attack *attackSource) Event {
+	msg := fmt.Sprintf("%s do attack with damage %+v", c.name, attack.hp)
+	if attack.crit {
+		msg += "(crit)"
+	}
 	return &event{
-		t: EventTypeDoAttack,
-		msg: fmt.Sprintf(
-			"%s do attack with damage %+v", c.name, attack.hp),
+		t:          EventTypeDoAttack,
+		msg:        msg,
 		charactors: []Charactor{c},
 	}
 }
